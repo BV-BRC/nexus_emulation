@@ -79,7 +79,7 @@ sub new
 		 db_hash => $hash,
 		 key_length => 1024,
 		 url_base => $url_base,
-		 token_lifetime => 86400,
+		 token_lifetime => 86400 * 30,
 		 };
     return bless $self, $class;
 }
