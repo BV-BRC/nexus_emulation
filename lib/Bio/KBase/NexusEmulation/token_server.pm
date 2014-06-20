@@ -118,7 +118,7 @@ post '/Sessions/Login' => sub {
     my $token_in = param('token');
 
 my $params= params;
-print STDERR Dumper($params);
+#print STDERR Dumper($params);
 
     if ($token_in)
     {
@@ -174,7 +174,7 @@ print STDERR "did not validate token $token_in\n";
 		    system_admin => JSON::XS::false,
 		};
 
-print STDERR "Returning: " . Dumper($ret);
+#print STDERR "Returning: " . Dumper($ret);
 	return $ret;
     }
     else
