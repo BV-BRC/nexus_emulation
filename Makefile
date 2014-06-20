@@ -5,7 +5,7 @@ include $(TOP_DIR)/tools/Makefile.common
 
 SERVICE_SPEC = 
 SERVICE_NAME = NexusEmulation
-SERVICE_PORT = 5000
+SERVICE_PORT = 7120
 SERVICE_DIR  = nexus_emulation
 
 SERVICE_PSGI = $(SERVICE_NAME).psgi

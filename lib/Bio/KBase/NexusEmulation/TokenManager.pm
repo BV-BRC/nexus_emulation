@@ -79,7 +79,7 @@ sub new
 		 db_hash => $hash,
 		 key_length => 1024,
 		 url_base => $url_base,
-		 token_lifetime => 86400 * 30,
+		 token_lifetime => 86400 * 365,
 		 };
     return bless $self, $class;
 }
@@ -282,6 +282,51 @@ sub validate
     }
 
     return 1;
+}
+
+=item $ok = $mgr->validate_and_get_user($token)
+
+Validate the given token and return its user id. The token is assumed to have been one that
+B<this> token manager issued; in other words, the base URL for the signing subject
+in the token must be the same as our URL base.
+
+=cut
+
+sub validate_and_get_user
+{
+    my($self, $token) = @_;
+
+    my @parts = map { [ split(/=/, $_, 2) ] } split(/\|/, $token);
+    my $to_sign = join("|", map { join("=", @$_) } grep { $_->[0] ne "sig" } @parts);
+    my %parts = map { $_->[0] => $_->[1]} @parts;
+    # print Dumper($to_sign, \%parts);
+
+    my $subj = $parts{SigningSubject};
+    my $surl = URI->new($subj);
+    $surl->path('');
+    if ($surl ne $self->url_base)
+    {
+	print STDERR "validate failed on $surl ne $self->{url_base}\n";
+	return undef;
+    }
+
+    my($key) = $subj =~ m,/goauth/keys/(\S+)$,;
+    $key or die "No key found in $subj\n";
+    my $sig = $self->sign($key, $to_sign);
+
+    if ($sig ne $parts{sig})
+    {
+	print STDERR "signature did not match\n$sig\n$parts{sig}";
+	return undef;
+    }
+
+    if ($parts{expiry} < time)
+    {
+	print STDERR "token expired\n";
+	return undef;
+    }
+
+    return $parts{un};
 }
 
 1;
