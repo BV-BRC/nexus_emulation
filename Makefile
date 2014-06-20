@@ -10,6 +10,8 @@ SERVICE_DIR  = nexus_emulation
 
 SERVICE_PSGI = $(SERVICE_NAME).psgi
 
+STARMAN_WORKERS=4
+
 TPAGE_ARGS = \
 	--define kb_runas_user=$(SERVICE_USER) \
 	--define kb_top=$(TARGET) \
@@ -17,7 +19,8 @@ TPAGE_ARGS = \
 	--define kb_service_name=$(SERVICE_NAME) \
 	--define kb_service_dir=$(SERVICE_DIR) \
 	--define kb_service_port=$(SERVICE_PORT) \
-	--define kb_psgi=$(SERVICE_PSGI)
+	--define kb_psgi=$(SERVICE_PSGI) \
+	--define kb_starman_workers=$(STARMAN_WORKERS)
 
 
 CLIENT_TESTS = $(wildcard client-tests/*.t)

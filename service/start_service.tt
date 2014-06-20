@@ -9,11 +9,16 @@ export KB_SERVICE_NAME=[% kb_service_name %]
 
 pid_file=$KB_SERVICE_DIR/service.pid
 
+[% IF kb_starman_workers -%]
+workers=[% kb_starman_workers %]
+[% ELSE -%]
+workers=5
+[% END -%]
 
 exec $KB_RUNTIME/bin/perl $KB_RUNTIME/bin/starman \
     --listen :[% kb_service_port %] \
     --pid $pid_file \
     --error-log $KB_SERVICE_DIR/error.log \
     --access-log $KB_SERVICE_DIR/access.log \
-    --workers 20  \
+    --workers $workers \
     $KB_TOP/lib/[% kb_psgi %] &
