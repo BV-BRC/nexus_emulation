@@ -6,7 +6,7 @@ use DBI;
 use strict;
 use base 'Class::Accessor';
 
-__PACKAGE__->mk_accessors(qw(dbh dbname dbhost dbuser dbpass));
+__PACKAGE__->mk_accessors(qw(dbname dbhost dbuser dbpass));
 
 sub new
 {
@@ -24,6 +24,22 @@ sub new
 	dbh => $dbh,
     };
     return bless $self, $class;
+}
+
+sub dbh
+{
+    my($self) = @_;
+
+    my $dbh = $self->{dbh};
+    if ($dbh->ping())
+    {
+	return $dbh;
+    }
+
+    $dbh = DBI->connect("DBI:mysql:database=$self->{dbname};host=$self->{dbhost}", $self->{dbuser}, $self->{dbpass});
+    $dbh or die "Cannot open webapp database\n";
+    $self->{dbh} = $dbh;
+    return $dbh;
 }
 
 sub authenticate
