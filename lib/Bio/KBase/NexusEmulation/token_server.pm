@@ -4,6 +4,8 @@ use Data::Dumper;
 use Dancer;
 use JSON::XS;
 use Bio::KBase::NexusEmulation::TokenManager;
+use Digest::SHA 'sha256_hex';
+use Crypt::OpenSSL::Random;
 
 use Bio::KBase::DeploymentConfig;
 
@@ -21,6 +23,8 @@ eval "require $auth_name;";
 
 my $auth_params = $config->setting("authority-params");
 my $authority = $auth_name->new(@$auth_params);
+
+my $salt = $config->setting("salt") || "(African || European)?";
 
 set serializer => 'JSON';
 
@@ -120,6 +124,7 @@ post '/Sessions/Login' => sub {
 my $params= params;
 #print STDERR Dumper($params);
 
+    my $token;
     if ($token_in)
     {
 	$user_id = $mgr->validate_and_get_user($token_in);
@@ -128,6 +133,7 @@ my $params= params;
 print STDERR "did not validate token $token_in\n";
 	    return send_error("invalid token", 503);
 	}
+	$token = $token_in;
     }
     else
     {
@@ -136,7 +142,8 @@ print STDERR "did not validate token $token_in\n";
 	    return send_error("permission denied", 503);
 	}
 	# not used for now
-	#$token = $mgr->create_signed_token($user_id, $user_id);
+	my $token_obj = $mgr->create_signed_token($user_id, $user_id);
+	$token = $token_obj->{access_token};
     }
 
     my $profile = $authority->user_profile($user_id);
@@ -163,15 +170,18 @@ print STDERR "did not validate token $token_in\n";
 #			};
 #		    
 
+	my $session = sha256_hex(Crypt::OpenSSL::Random::random_bytes(32));
+	
 	my $ret = { verified => JSON::XS::true,
 		    user_id => $user_id,
 		    email  => ($profile->{email} ? $profile->{email} : "user\@example.com"),
 		    groups => [],
 		    name => $profile->{fullname},
-		    kbase_sessionid => '',
+		    kbase_sessionid => $session,
 		    error_msg => '',
 		    opt_in => JSON::XS::true,
 		    system_admin => JSON::XS::false,
+		    token => $token,
 		};
 
 #print STDERR "Returning: " . Dumper($ret);
