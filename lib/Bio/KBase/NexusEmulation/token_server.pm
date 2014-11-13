@@ -135,15 +135,20 @@ print STDERR "did not validate token $token_in\n";
 	}
 	$token = $token_in;
     }
-    else
+    elsif ($user_id)
     {
 	if (!$authority->authenticate($user_id, $password))
 	{
+print STDERR "did not validate user '$user_id'\n";
 	    return send_error("permission denied", 503);
 	}
 	# not used for now
 	my $token_obj = $mgr->create_signed_token($user_id, $user_id);
 	$token = $token_obj->{access_token};
+    }
+    else
+    {
+	return send_error("No userid or token passed in request");
     }
 
     my $profile = $authority->user_profile($user_id);

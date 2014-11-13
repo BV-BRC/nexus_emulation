@@ -76,6 +76,7 @@ sub user_profile
 
     my($email, $fn, $ln) = @{$res->[0]};
     return {
+	username => $login,
 	email => $email,
 	fullname => join(" ", $fn, $ln),
     };
