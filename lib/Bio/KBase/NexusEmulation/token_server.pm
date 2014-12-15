@@ -27,6 +27,10 @@ my $authority = $auth_name->new(@$auth_params);
 my $salt = $config->setting("salt") || "(African || European)?";
 
 set serializer => 'JSON';
+set show_errors => 1;
+set plack_middlewares => [
+    [ 'CrossOrigin' ],
+];
 
 get '/goauth/token' => sub {
     my $grant_type = param('grant_type');
@@ -140,7 +144,9 @@ print STDERR "did not validate token $token_in\n";
 	if (!$authority->authenticate($user_id, $password))
 	{
 print STDERR "did not validate user '$user_id'\n";
-	    return send_error("permission denied", 503);
+	    my $ret = { user_id => $user_id, error_msg => "LoginFailure: Authentication failed." };
+
+	    send_error($ret, 401);
 	}
 	# not used for now
 	my $token_obj = $mgr->create_signed_token($user_id, $user_id);
