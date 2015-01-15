@@ -8,6 +8,8 @@ use Crypt::OpenSSL::RSA;
 use DB_File;
 use URI;
 use Data::Dumper;
+use LWP::UserAgent;
+use JSON::XS;
 
 use base 'Class::Accessor';
 
@@ -255,13 +257,47 @@ sub validate
     $surl->path('');
     if ($surl ne $self->url_base)
     {
-	print STDERR "validate failed on $surl ne $self->{url_base}\n";
-	return 0;
+	print STDERR "validate failed (ignored) on $surl ne $self->{url_base}\n";
+	#return 0;
     }
 
-    my($key) = $subj =~ m,/goauth/keys/(\S+)$,;
-    $key or die "No key found in $subj\n";
-    my $sig = $self->sign($key, $to_sign);
+    my($key_id) = $subj =~ m,/goauth/keys/(\S+)$,;
+    #$key_id or die "No key found in $subj\n";
+    my $key = $self->db_hash->{"priv.$key_id"};
+
+    if (!$key_id || !$key)
+    {
+	#
+	# This is an external token. Validate it.
+	# 
+	print STDERR "OKing external token from $subj...\n";
+	my $ua = LWP::UserAgent->new();
+	my $res = $ua->get($subj);
+	if ($res->is_success)
+	{
+	    my $data = decode_json($res->content);
+	    if (!$data->{valid})
+	    {
+		print STDERR "public key is invalid\n";
+		return 0;
+	    }
+	    my $pubkey = $data->{pubkey};
+	    my $rsa = Crypt::OpenSSL::RSA->new_public_key($pubkey);
+	    $rsa->use_sha1_hash();
+
+	    my $binary_sig = pack('H*', $parts{sig});
+	    my $verify = $rsa->verify($to_sign, $binary_sig);
+
+	    print STDERR "verified: $verify\n";
+	    return $verify;
+	}
+	else
+	{
+	    print STDERR "Error getting pbukey from $subj " . $res->content;
+	    return 0;
+	}
+    }
+    my $sig = $self->sign($key_id, $to_sign);
 
     if ($sig ne $parts{sig})
     {
