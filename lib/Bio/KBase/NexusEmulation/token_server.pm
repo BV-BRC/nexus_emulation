@@ -4,6 +4,7 @@ use Data::Dumper;
 use Dancer;
 use JSON::XS;
 use Bio::KBase::NexusEmulation::TokenManager;
+use Bio::KBase::NexusEmulation::AuthorityManager;
 use Digest::SHA 'sha256_hex';
 use Crypt::OpenSSL::Random;
 
@@ -17,12 +18,7 @@ our $storage = $config->setting("storage");
 
 our $mgr = Bio::KBase::NexusEmulation::TokenManager->new($storage, $url_base);
 
-my $auth_name = $config->setting("authority");
-
-eval "require $auth_name;";
-
-my $auth_params = $config->setting("authority-params");
-my $authority = $auth_name->new(@$auth_params);
+our $authority_manager = Bio::KBase::NexusEmulation::AuthorityManager->new($config);
 
 my $salt = $config->setting("salt") || "(African || European)?";
 
@@ -46,6 +42,7 @@ get '/goauth/token' => sub {
 
     $client_id ||= $user;
 
+    my $authority = $authority_manager->default_authority();
     if ($authority->authenticate($user, $pass))
     {
 	my $val = $mgr->create_signed_token($user, $client_id);
@@ -81,7 +78,13 @@ get '/users/:user' => sub {
 	return send_error("permission denied", 503);
     }
 
-    my $res = $authority->user_profile($user);
+    #
+    # Select an authority based on the contents of the token. 
+    #
+
+    my $auth = $authority_manager->find_matching_authority_by_token($token);
+    
+    my $res = $auth->user_profile($user);
 
     unless (ref($res))
     {
@@ -124,6 +127,8 @@ post '/Sessions/Login' => sub {
     my $user_id = param('user_id');
     my $password = param('password');
     my $token_in = param('token');
+
+    my $authority = $authority_manager->default_authority();
 
 my $params= params;
 #print STDERR Dumper($params);

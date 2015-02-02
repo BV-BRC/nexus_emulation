@@ -4,7 +4,7 @@ package Bio::KBase::NexusEmulation::AuthoritySEED;
 use Data::Dumper;
 use DBI;
 use strict;
-use base 'Class::Accessor';
+use base 'Bio::KBase::NexusEmulation::AuthorityBase';
 
 __PACKAGE__->mk_accessors(qw(dbname dbhost dbuser dbpass));
 
@@ -16,14 +16,16 @@ sub new
 
     $dbh or die "Cannot open webapp database\n";
     
-    my $self = {
-	dbname => $dbname,
-	dbhost => $dbhost,
-	dbuser => $dbuser,
-	dbpass => $dbpass,
-	dbh => $dbh,
-    };
-    return bless $self, $class;
+    my $self = $class->SUPER::new();
+    bless $self, $class;
+
+    $self->dbname($dbname);
+    $self->dbhost($dbhost);
+    $self->dbuser($dbuser);
+    $self->dbpass($dbpass);
+    $self->{dbh}  = $dbh;
+
+    return $self;
 }
 
 sub dbh
@@ -75,10 +77,18 @@ sub user_profile
     }
 
     my($email, $fn, $ln) = @{$res->[0]};
+
+    if ($login !~ /@/ && $self->user_suffix)
+    {
+	$login .= '@' . $self->user_suffix;
+    }
+
+    print STDERR "Returning profile username=$login email=$email\n";
     return {
 	username => $login,
 	email => $email,
 	fullname => join(" ", $fn, $ln),
+	($self->realm ? (realm => $self->realm ) : ()),
     };
 }
 
