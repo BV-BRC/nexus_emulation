@@ -25,7 +25,7 @@ my $salt = $config->setting("salt") || "(African || European)?";
 set serializer => 'JSON';
 set show_errors => 1;
 set plack_middlewares => [
-    [ 'CrossOrigin' ],
+    [ 'CrossOrigin' => (origins => "*", headers => "*")],
 ];
 
 get '/goauth/token' => sub {
@@ -82,9 +82,9 @@ get '/users/:user' => sub {
     # Select an authority based on the contents of the token. 
     #
 
-    my $auth = $authority_manager->find_matching_authority_by_token($token);
+    my $authority = $authority_manager->find_matching_authority_by_token($token);
     
-    my $res = $auth->user_profile($user);
+    my $res = $authority->user_profile($user);
 
     unless (ref($res))
     {

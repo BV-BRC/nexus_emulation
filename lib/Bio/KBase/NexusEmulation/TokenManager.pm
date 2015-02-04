@@ -192,10 +192,11 @@ sub create_signed_token
 		       expiry => $expiry,
 		       client_id => $client_id,
 		       token_type => $token_type,
+		       this_is_globus => "globus_style_token",
 		       SigningSubject => $signing_subject,
 		     };
 
-    my $token_str = join("|", map { "$_=$token_data->{$_}" } qw(un tokenid expiry client_id token_type SigningSubject));
+    my $token_str = join("|", map { "$_=$token_data->{$_}" } qw(un tokenid expiry client_id token_type SigningSubject this_is_globus));
 
     my $sig = $self->sign($key, $token_str);
 

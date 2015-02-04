@@ -24,7 +24,7 @@ my $auth = $mgr->find_matching_authority_by_token($seed_token);
 ok($auth->realm eq 'SEED');
 
 my $auth = $mgr->find_matching_authority_by_token($globus_token);
-ok(!defined($auth));
+ok($auth->realm eq 'KBASE');
 
 my $auth = $mgr->find_matching_authority_by_token($patric_token);
 ok($auth->realm eq 'PATRIC');
@@ -37,5 +37,8 @@ ok(!defined($auth));
 
 my $auth = $mgr->find_matching_authority_by_realm('PATRIC');
 ok($auth && $auth->realm eq 'PATRIC');
+
+my $auth = $mgr->find_matching_authority_by_realm('KBASE');
+ok($auth && $auth->realm eq 'KBASE');
 
 done_testing();
