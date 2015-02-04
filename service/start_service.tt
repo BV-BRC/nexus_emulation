@@ -7,6 +7,10 @@ export KB_SERVICE_DIR=$KB_TOP/services/[% kb_service_dir %]
 export KB_DEPLOYMENT_CONFIG=$KB_TOP/deployment.cfg
 export KB_SERVICE_NAME=[% kb_service_name %]
 
+[% IF https_ca_file -%]
+export HTTPS_CA_FILE=[% https_ca_file %]
+[% END -%]
+
 pid_file=$KB_SERVICE_DIR/service.pid
 
 [% IF kb_starman_workers -%]
