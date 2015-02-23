@@ -20,8 +20,8 @@ TPAGE_ARGS = \
 	--define kb_service_dir=$(SERVICE_DIR) \
 	--define kb_service_port=$(SERVICE_PORT) \
 	--define kb_psgi=$(SERVICE_PSGI) \
-	--define kb_starman_workers=$(STARMAN_WORKERS)
-
+	--define kb_starman_workers=$(STARMAN_WORKERS) \
+	--define https_ca_file=$(HTTPS_CA_FILE)
 
 CLIENT_TESTS = $(wildcard client-tests/*.t)
 SCRIPTS_TESTS = $(wildcard script-tests/*.t)
