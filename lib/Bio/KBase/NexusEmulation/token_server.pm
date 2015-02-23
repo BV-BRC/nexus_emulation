@@ -33,7 +33,11 @@ get '/goauth/token' => sub {
     my $client_id = param('client_id');
     my $auth = request->headers->authorization_basic;
 
-    if (!$auth || $grant_type ne 'client_credentials')
+    if (!$auth)
+    {
+	return send_error("Unauthorized", 401);
+    }
+    elsif ($grant_type ne 'client_credentials')
     {
 	return send_error("Invalid request");
     }
@@ -58,7 +62,7 @@ get '/goauth/token' => sub {
     }
     else
     {
-	return send_error("permission denied", 503);
+	return send_error("permission denied", 403);
     }
 					  
 
@@ -68,14 +72,19 @@ get '/users/:user' => sub {
     my $user = param('user');
     my $auth = request->headers->authorization;
 
+    if (!$auth)
+    {
+	return send_error("Unauthorized", 401);
+    }
+
     my($auth_type, $token) = split(/\s+/, $auth, 2);
     unless (lc($auth_type) eq 'oauth' || lc($auth_type) eq 'globus-goauthtoken')
     {
-	return send_error("permission denied", 503);
+	return send_error("permission denied", 403);
     }
     unless ($mgr->validate($token, $user))
     {
-	return send_error("permission denied", 503);
+	return send_error("permission denied", 403);
     }
 
     #
@@ -88,7 +97,7 @@ get '/users/:user' => sub {
 
     unless (ref($res))
     {
-	return send_error("permission denied", 503);
+	return send_error("permission denied", 403);
     }
 
     return $res;
@@ -105,7 +114,7 @@ get '/goauth/keys/:key' => sub {
     {
 	print STDERR "no key: $@\n";
 	#return Dancer::ER
-	return send_error("Key $key not found", 500, "Key $key not found");
+	return send_error("Key $key not found", 404, "Key $key not found");
     }
     my $data = { valid => 1,
 		 pubkey => $str,
@@ -140,7 +149,7 @@ my $params= params;
 	if (!$user_id)
 	{
 print STDERR "did not validate token $token_in\n";
-	    return send_error("invalid token", 503);
+	    return send_error("invalid token", 403);
 	}
 	$token = $token_in;
     }
@@ -159,7 +168,7 @@ print STDERR "did not validate user '$user_id'\n";
     }
     else
     {
-	return send_error("No userid or token passed in request");
+	return send_error("No userid or token passed in request", 401);
     }
 
     my $profile = $authority->user_profile($user_id);
@@ -205,7 +214,7 @@ print STDERR "did not validate user '$user_id'\n";
     }
     else
     {
-	return send_error("error creating token");
+	return send_error("error creating token", 403);
     }
 };
 
