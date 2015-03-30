@@ -28,6 +28,13 @@ set plack_middlewares => [
     [ 'CrossOrigin' => (origins => "*", headers => "*")],
 ];
 
+hook 'before' => sub {
+    if (request->path_info =~ m,^//(.*),)
+    {
+        request->path_info("/$1");
+    }
+};
+
 get '/goauth/token' => sub {
     my $grant_type = param('grant_type');
     my $client_id = param('client_id');
