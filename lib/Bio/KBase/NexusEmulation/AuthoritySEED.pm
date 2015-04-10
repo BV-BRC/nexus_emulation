@@ -78,10 +78,13 @@ sub user_profile
 
     my($email, $fn, $ln) = @{$res->[0]};
 
-    if ($login !~ /@/ && $self->user_suffix)
-    {
-	$login .= '@' . $self->user_suffix;
-    }
+    # The following causes authentication problems where the username in the token
+    # is not the same as the login returned here.
+
+#    if ($login !~ /@/ && $self->user_suffix)
+#    {
+#	$login .= '@' . $self->user_suffix;
+#    }
 
     print STDERR "Returning profile username=$login email=$email\n";
     return {
