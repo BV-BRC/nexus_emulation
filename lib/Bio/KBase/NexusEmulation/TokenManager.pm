@@ -173,7 +173,7 @@ Create and sign a new token for the given username.
 
 sub create_signed_token
 {
-    my($self, $user, $client_id) = @_;
+    my($self, $user, $client_id, $override_user) = @_;
 
     my $now = time;
 
@@ -197,6 +197,7 @@ sub create_signed_token
 		     };
 
     my $token_str = join("|", map { "$_=$token_data->{$_}" } qw(un tokenid expiry client_id token_type SigningSubject this_is_globus));
+    $token_str .= "|override_user=$override_user" if $override_user;
 
     my $sig = $self->sign($key, $token_str);
 
