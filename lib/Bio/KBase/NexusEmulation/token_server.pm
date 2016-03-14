@@ -7,14 +7,17 @@ use Bio::KBase::NexusEmulation::TokenManager;
 use Bio::KBase::NexusEmulation::AuthorityManager;
 use Digest::SHA 'sha256_hex';
 use Crypt::OpenSSL::Random;
+use Apache::Htpasswd;
 
 use Bio::KBase::DeploymentConfig;
 
 our $config = Bio::KBase::DeploymentConfig->new();
-print Dumper($config);
+# print Dumper($config);
 
 our $url_base = $config->setting("url-base");
 our $storage = $config->setting("storage");
+
+our $override_password_file = $config->setting("override-password-file");
 
 our $mgr = Bio::KBase::NexusEmulation::TokenManager->new($storage, $url_base);
 
@@ -38,7 +41,13 @@ hook 'before' => sub {
 get '/goauth/token' => sub {
     my $grant_type = param('grant_type');
     my $client_id = param('client_id');
+    my $user_for_override = param('user_for_override');
     my $auth = request->headers->authorization_basic;
+
+    if ($user_for_override && !$override_password_file)
+    {
+	return send_error("Unauthorized", 401);
+    }
 
     if (!$auth)
     {
@@ -51,9 +60,59 @@ get '/goauth/token' => sub {
 
     my($user, $pass) = split(/:/, $auth, 2);
 
-    $client_id ||= $user;
+    $client_id ||= ($user_for_override ? $user_for_override : $user);
 
     my $authority = $authority_manager->default_authority();
+
+    #
+    # If we're passed an override user, check the local password to authenticate
+    # $user/$pass. If that works create the token and pass in the override username
+    # to the token manager to add to the token so it can be identified.
+    #
+
+    if ($user_for_override)
+    {
+	my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
+					 UseMD5 => 1,
+					 });
+	if ($pw->htCheckPassword($user, $pass))
+	{
+	    #
+	    # Ensure we do have the user. We need to be using an authority that allows
+	    # for pulling user profiles.
+	    #
+	    if ($authority->can("user_profile"))
+	    {
+		my $prof = $authority->user_profile($user_for_override);
+		if ($prof)
+		{
+		    my $val = $mgr->create_signed_token($user_for_override, $client_id, $user);
+		    if ($val)
+		    {
+			status 201;
+			return $val;
+		    }
+		    else
+		    {
+			return send_error("error creating token");
+		    }
+		}
+		else
+		{
+		    return send_error("Unauthorized", 401);
+		}
+	    }
+	    else
+	    {
+		return send_error("Unauthorized", 401);
+	    }	
+	}
+	else
+	{
+	    return send_error("Unauthorized", 401);
+	}
+    }
+
     if ($authority->authenticate($user, $pass))
     {
 	my $val = $mgr->create_signed_token($user, $client_id);
