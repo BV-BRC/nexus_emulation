@@ -3,6 +3,7 @@ package Bio::KBase::NexusEmulation::token_server;
 use Data::Dumper;
 use Dancer;
 use JSON::XS;
+use MIME::Base64;
 use Bio::KBase::NexusEmulation::TokenManager;
 use Bio::KBase::NexusEmulation::AuthorityManager;
 use Digest::SHA 'sha256_hex';
@@ -43,6 +44,15 @@ get '/goauth/token' => sub {
     my $client_id = param('client_id');
     my $user_for_override = param('user_for_override');
     my $auth = request->headers->authorization_basic;
+
+    if (!$auth)
+    {
+	my $auth_str = param('auth');
+	if ($auth_str)
+	{
+	    $auth = decode_base64($auth_str);
+	}
+    }
 
     if ($user_for_override && !$override_password_file)
     {
