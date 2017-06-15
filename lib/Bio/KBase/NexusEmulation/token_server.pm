@@ -3,11 +3,13 @@ package Bio::KBase::NexusEmulation::token_server;
 use Data::Dumper;
 use Dancer;
 use JSON::XS;
+use MIME::Base64;
 use Bio::KBase::NexusEmulation::TokenManager;
 use Bio::KBase::NexusEmulation::AuthorityManager;
 use Digest::SHA 'sha256_hex';
 use Crypt::OpenSSL::Random;
 use Apache::Htpasswd;
+use LWP::UserAgent;
 
 use Bio::KBase::DeploymentConfig;
 
@@ -16,6 +18,8 @@ our $config = Bio::KBase::DeploymentConfig->new();
 
 our $url_base = $config->setting("url-base");
 our $storage = $config->setting("storage");
+
+our $patric_auth_url = $config->setting("patric-auth-url");
 
 our $override_password_file = $config->setting("override-password-file");
 
@@ -44,16 +48,29 @@ get '/goauth/token' => sub {
     my $user_for_override = param('user_for_override');
     my $auth = request->headers->authorization_basic;
 
+    if (!$auth)
+    {
+	my $auth_str = param('auth');
+	if ($auth_str)
+	{
+	    $auth = decode_base64($auth_str);
+	}
+    }
+
+<<<<<<< HEAD
+=======
     if ($user_for_override && !$override_password_file)
     {
 	return send_error("Unauthorized", 401);
     }
 
+>>>>>>> d4939a8b701fbc9be9f2fe87a7546113dd3ac52b
     if ($grant_type ne 'client_credentials')
     {
 	return send_error("Invalid request");
     }
 
+<<<<<<< HEAD
     my $ok; 
     my $user;
     if ($auth)
@@ -75,6 +92,83 @@ get '/goauth/token' => sub {
 	{
 	    my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
 					     UseMD5 => 1,
+=======
+    my($ok, $user);
+
+    if ($auth)
+    {
+	my $pass;
+	($user, $pass) = split(/:/, $auth, 2);
+
+	#
+	# Special case code for PATRIC. Return a PATRIC token from its auth server
+	# upon request for a user@patricbrc.org token.
+	#
+	
+	if ($patric_auth_url && $user =~ /^([^\@]+)\@patricbrc\.org$/)
+	{
+	    my $puser = $1;
+	    my $req = {
+		username => $puser,
+		password => $pass,
+	    };
+	    my $ua = LWP::UserAgent->new;
+	    my $res = $ua->post($patric_auth_url, $req);
+	    if ($res->is_success)
+	    {
+		my $token = $res->content;
+		if ($token =~ /un=([^|]+)/)
+		{
+		    my @parts = split(/\|/, $token);
+		    my %fields;
+		    for my $p (@parts)
+		    {
+			my($a,$b) = split(/=/, $p, 2);
+			$fields{$a} = $b;
+		    }
+		    
+		    my $now = time;
+		    my $expires_in = $fields{expiry} - $now;
+		    return {
+			access_token => $token,
+			client_id => $fields{client_id},
+			user_name => $fields{un},
+			expires_in => $expires_in,
+			expiry => $fields{expiry},
+			issued_on => $now,
+			lifetime => $expires_in,
+			scopes => [],
+			token_id => $fields{tokenid},
+			token_type => $fields{token_type},
+		    };
+		}
+		else
+		{
+		    warn "Invalid token return '$token' from $patric_auth_url for $puser\n";
+		    return send_error("Unauthorized", 401);
+		}
+	    }
+	    else
+	    {
+		return send_error("Unauthorized", 401);
+	    }
+	} # end PATRIC spcial case
+
+	$client_id ||= ($user_for_override ? $user_for_override : $user);
+
+	my $authority = $authority_manager->default_authority();
+
+	#
+	# If we're passed an override user, check the local password to authenticate
+	# $user/$pass. If that works create the token and pass in the override username
+	# to the token manager to add to the token so it can be identified.
+	#
+	
+	if ($user_for_override)
+	{
+	    my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
+						 UseMD5 => 1,
+>>>>>>> d4939a8b701fbc9be9f2fe87a7546113dd3ac52b
 					     });
 	    if ($pw->htCheckPassword($user, $pass))
 	    {
@@ -118,10 +212,10 @@ get '/goauth/token' => sub {
     }
     else
     {
-	my $auth = request->headers->authorization // request->headers->header("x-globus-goauthtoken");
-
-print STDERR "have auth hdr $auth\n";
-print STDERR Dumper(request->headers);
+    	my $auth = request->headers->authorization // request->headers->header("x-globus-goauthtoken");
+	
+	print STDERR "have auth hdr $auth\n";
+	print STDERR Dumper(request->headers);
 	if (!$auth)
 	{
 	    return send_error("Unauthorized", 401);
@@ -133,24 +227,24 @@ print STDERR Dumper(request->headers);
 	    $token = $auth_type;
 	    $auth_type = 'x-globus-goauthtoken';
 	}
-print STDERR Dumper($auth_type, $token);
+	print STDERR Dumper($auth_type, $token);
 	unless (lc($auth_type) eq 'oauth' || lc($auth_type) eq 'globus-goauthtoken' || lc($auth_type) eq 'x-globus-goauthtoken')
 	{
 	    return send_error("permission denied", 403);
 	}
-
+	
 	my($realm) = $token =~ /realm=([^|]+)/;
 	my $this_mgr = $mgr;
-        if ($realm ne $url_base)
+	if ($realm ne $url_base)
 	{
 	    ($ok, $user) = Bio::KBase::NexusEmulation::TokenManager->validate_standalone($token);
 	}
-	else 
+	else
 	{
 	    $user = $this_mgr->validate_and_get_user($token);
 	    $ok = $user;
 	}
-print STDERR Dumper(USER=>$user);
+	print STDERR Dumper(USER=>$user);
 	$client_id = $user;
 	if ($ok)
 	{
@@ -168,8 +262,8 @@ print STDERR Dumper(USER=>$user);
 	    return send_error("error authenticating token");
 	}
     }
-    print STDERR Dumper(OK=>$ok);
-    
+    print STDERR Dumper(OK => $ok);
+
     if ($ok)
     {
 	my $val = $mgr->create_signed_token($user, $client_id);
@@ -187,14 +281,12 @@ print STDERR Dumper(USER=>$user);
     {
 	return send_error("permission denied", 403);
     }
-					  
-
 };
 
 get '/users/:user' => sub {
     my $user = param('user');
     my $auth = request->headers->authorization;
-
+    
     if (!$auth)
     {
 	return send_error("Unauthorized", 401);
