@@ -62,126 +62,182 @@ get '/goauth/token' => sub {
 	return send_error("Unauthorized", 401);
     }
 
-    if (!$auth)
-    {
-	return send_error("Unauthorized", 401);
-    }
-    elsif ($grant_type ne 'client_credentials')
+    if ($grant_type ne 'client_credentials')
     {
 	return send_error("Invalid request");
     }
 
-    my($user, $pass) = split(/:/, $auth, 2);
+    my($ok, $user);
 
-    #
-    # Special case code for PATRIC. Return a PATRIC token from its auth server
-    # upon request for a user@patricbrc.org token.
-    #
-
-    if ($patric_auth_url && $user =~ /^([^\@]+)\@patricbrc\.org$/)
+    if ($auth)
     {
-	my $puser = $1;
-	my $req = {
-	    username => $puser,
-	    password => $pass,
-	};
-	my $ua = LWP::UserAgent->new;
-	my $res = $ua->post($patric_auth_url, $req);
-	if ($res->is_success)
+	my $pass;
+	($user, $pass) = split(/:/, $auth, 2);
+
+	#
+	# Special case code for PATRIC. Return a PATRIC token from its auth server
+	# upon request for a user@patricbrc.org token.
+	#
+	
+	if ($patric_auth_url && $user =~ /^([^\@]+)\@patricbrc\.org$/)
 	{
-	    my $token = $res->content;
-	    if ($token =~ /un=([^|]+)/)
+	    my $puser = $1;
+	    my $req = {
+		username => $puser,
+		password => $pass,
+	    };
+	    my $ua = LWP::UserAgent->new;
+	    my $res = $ua->post($patric_auth_url, $req);
+	    if ($res->is_success)
 	    {
-		my @parts = split(/\|/, $token);
-		my %fields;
-		for my $p (@parts)
+		my $token = $res->content;
+		if ($token =~ /un=([^|]+)/)
 		{
-		    my($a,$b) = split(/=/, $p, 2);
-		    $fields{$a} = $b;
-		}
-
-		my $now = time;
-		my $expires_in = $fields{expiry} - $now;
-		return {
-		    access_token => $token,
-		    client_id => $fields{client_id},
-		    user_name => $fields{un},
-		    expires_in => $expires_in,
-		    expiry => $fields{expiry},
-		    issued_on => $now,
-		    lifetime => $expires_in,
-		    scopes => [],
-		    token_id => $fields{tokenid},
-		    token_type => $fields{token_type},
-		};
-	    }
-	    else
-	    {
-		warn "Invalid token return '$token' from $patric_auth_url for $puser\n";
-		return send_error("Unauthorized", 401);
-	    }
-	}
-	else
-	{
-	    return send_error("Unauthorized", 401);
-	}
-    }
-	 
-
-    $client_id ||= ($user_for_override ? $user_for_override : $user);
-
-    my $authority = $authority_manager->default_authority();
-
-    #
-    # If we're passed an override user, check the local password to authenticate
-    # $user/$pass. If that works create the token and pass in the override username
-    # to the token manager to add to the token so it can be identified.
-    #
-
-    if ($user_for_override)
-    {
-	my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
-					 UseMD5 => 1,
-					 });
-	if ($pw->htCheckPassword($user, $pass))
-	{
-	    #
-	    # Ensure we do have the user. We need to be using an authority that allows
-	    # for pulling user profiles.
-	    #
-	    if ($authority->can("user_profile"))
-	    {
-		my $prof = $authority->user_profile($user_for_override);
-		if ($prof)
-		{
-		    my $val = $mgr->create_signed_token($user_for_override, $client_id, $user);
-		    if ($val)
+		    my @parts = split(/\|/, $token);
+		    my %fields;
+		    for my $p (@parts)
 		    {
-			status 201;
-			return $val;
+			my($a,$b) = split(/=/, $p, 2);
+			$fields{$a} = $b;
 		    }
-		    else
-		    {
-			return send_error("error creating token");
-		    }
+		    
+		    my $now = time;
+		    my $expires_in = $fields{expiry} - $now;
+		    return {
+			access_token => $token,
+			client_id => $fields{client_id},
+			user_name => $fields{un},
+			expires_in => $expires_in,
+			expiry => $fields{expiry},
+			issued_on => $now,
+			lifetime => $expires_in,
+			scopes => [],
+			token_id => $fields{tokenid},
+			token_type => $fields{token_type},
+		    };
 		}
 		else
 		{
+		    warn "Invalid token return '$token' from $patric_auth_url for $puser\n";
 		    return send_error("Unauthorized", 401);
 		}
 	    }
 	    else
 	    {
 		return send_error("Unauthorized", 401);
-	    }	
+	    }
+	} # end PATRIC spcial case
+
+	$client_id ||= ($user_for_override ? $user_for_override : $user);
+
+	my $authority = $authority_manager->default_authority();
+
+	#
+	# If we're passed an override user, check the local password to authenticate
+	# $user/$pass. If that works create the token and pass in the override username
+	# to the token manager to add to the token so it can be identified.
+	#
+	
+	if ($user_for_override)
+	{
+	    my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
+						 UseMD5 => 1,
+					     });
+	    if ($pw->htCheckPassword($user, $pass))
+	    {
+		#
+		# Ensure we do have the user. We need to be using an authority that allows
+		# for pulling user profiles.
+		#
+		if ($authority->can("user_profile"))
+		{
+		    my $prof = $authority->user_profile($user_for_override);
+		    if ($prof)
+		    {
+			my $val = $mgr->create_signed_token($user_for_override, $client_id, $user);
+			if ($val)
+			{
+			    status 201;
+			    return $val;
+			}
+			else
+			{
+			    return send_error("error creating token");
+			}
+		    }
+		    else
+		    {
+			return send_error("Unauthorized", 401);
+		    }
+		}
+		else
+		{
+		    return send_error("Unauthorized", 401);
+		}	
+	    }
+	    else
+	    {
+		return send_error("Unauthorized", 401);
+	    }
 	}
-	else
+
+	$ok = $authority->authenticate($user, $pass);
+    }
+    else
+    {
+    	my $auth = request->headers->authorization // request->headers->header("x-globus-goauthtoken");
+	
+	print STDERR "have auth hdr $auth\n";
+	print STDERR Dumper(request->headers);
+	if (!$auth)
 	{
 	    return send_error("Unauthorized", 401);
 	}
+	
+	my($auth_type, $token) = split(/\s+/, $auth, 2);
+	if ($auth_type =~ /un=/)
+	{
+	    $token = $auth_type;
+	    $auth_type = 'x-globus-goauthtoken';
+	}
+	print STDERR Dumper($auth_type, $token);
+	unless (lc($auth_type) eq 'oauth' || lc($auth_type) eq 'globus-goauthtoken' || lc($auth_type) eq 'x-globus-goauthtoken')
+	{
+	    return send_error("permission denied", 403);
+	}
+	
+	my($realm) = $token =~ /realm=([^|]+)/;
+	my $this_mgr = $mgr;
+	if ($realm ne $url_base)
+	{
+	    ($ok, $user) = Bio::KBase::NexusEmulation::TokenManager->validate_standalone($token);
+	}
+	else
+	{
+	    $user = $this_mgr->validate_and_get_user($token);
+	    $ok = $user;
+	}
+	print STDERR Dumper(USER=>$user);
+	$client_id = $user;
+	if ($ok)
+	{
+	    my $val = {
+		access_token => $token,
+		client_id => $client_id,
+		scopes => [],
+		user_name => $user,
+	    };
+	    status 201;
+	    return $val;
+	}
+	else
+	{
+	    return send_error("error authenticating token");
+	}
     }
+    print STDERR Dumper(OK => $ok);
 
-    if ($authority->authenticate($user, $pass))
+    if ($ok)
     {
 	my $val = $mgr->create_signed_token($user, $client_id);
 	if ($val)
@@ -198,21 +254,19 @@ get '/goauth/token' => sub {
     {
 	return send_error("permission denied", 403);
     }
-					  
-
 };
 
 get '/users/:user' => sub {
     my $user = param('user');
     my $auth = request->headers->authorization;
-
+    
     if (!$auth)
     {
 	return send_error("Unauthorized", 401);
     }
 
     my($auth_type, $token) = split(/\s+/, $auth, 2);
-    unless (lc($auth_type) eq 'oauth' || lc($auth_type) eq 'globus-goauthtoken')
+    unless (lc($auth_type) eq 'oauth' || lc($auth_type) eq 'globus-goauthtoken' || lc($auth_type) eq 'x-globus-oauthtoken')
     {
 	return send_error("permission denied", 403);
     }
