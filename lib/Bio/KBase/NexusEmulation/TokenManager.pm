@@ -322,6 +322,52 @@ sub validate
     return 1;
 }
 
+sub validate_standalone
+{
+    my($class, $token) = @_;
+
+    my @parts = map { [ split(/=/, $_, 2) ] } split(/\|/, $token);
+    my $to_sign = join("|", map { join("=", @$_) } grep { $_->[0] ne "sig" } @parts);
+    my %parts = map { $_->[0] => $_->[1]} @parts;
+    # print Dumper($to_sign, \%parts);
+
+    my $subj = $parts{SigningSubject};
+    my $surl = URI->new($subj);
+    $surl->path('');
+
+    my($key_id) = $subj =~ m,/goauth/keys/(\S+)$,;
+    #$key_id or die "No key found in $subj\n";
+    #
+    # This is an external token. Validate it.
+    # 
+    print STDERR "OKing external token from $subj...\n";
+    my $ua = LWP::UserAgent->new();
+    my $res = $ua->get($subj);
+    if ($res->is_success)
+    {
+	my $data = decode_json($res->content);
+	if (!$data->{valid})
+	{
+	    print STDERR "public key is invalid\n";
+	    return 0;
+	}
+	my $pubkey = $data->{pubkey};
+	my $rsa = Crypt::OpenSSL::RSA->new_public_key($pubkey);
+	$rsa->use_sha1_hash();
+
+	my $binary_sig = pack('H*', $parts{sig});
+	my $verify = $rsa->verify($to_sign, $binary_sig);
+
+	print STDERR "verified: $verify\n";
+	return wantarray ? ($verify, $parts{un}) : $verify;
+    }
+    else
+    {
+	print STDERR "Error getting pbukey from $subj " . $res->content;
+	return wantarray ? (0) : 0;
+    }
+}
+
 =item $ok = $mgr->validate_and_get_user($token)
 
 Validate the given token and return its user id. The token is assumed to have been one that
