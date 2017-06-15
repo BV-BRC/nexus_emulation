@@ -9,6 +9,7 @@ use Bio::KBase::NexusEmulation::AuthorityManager;
 use Digest::SHA 'sha256_hex';
 use Crypt::OpenSSL::Random;
 use Apache::Htpasswd;
+use LWP::UserAgent;
 
 use Bio::KBase::DeploymentConfig;
 
@@ -17,6 +18,8 @@ our $config = Bio::KBase::DeploymentConfig->new();
 
 our $url_base = $config->setting("url-base");
 our $storage = $config->setting("storage");
+
+our $patric_auth_url = $config->setting("patric-auth-url");
 
 our $override_password_file = $config->setting("override-password-file");
 
@@ -69,6 +72,61 @@ get '/goauth/token' => sub {
     }
 
     my($user, $pass) = split(/:/, $auth, 2);
+
+    #
+    # Special case code for PATRIC. Return a PATRIC token from its auth server
+    # upon request for a user@patricbrc.org token.
+    #
+
+    if ($patric_auth_url && $user =~ /^([^\@]+)\@patricbrc\.org$/)
+    {
+	my $puser = $1;
+	my $req = {
+	    username => $puser,
+	    password => $pass,
+	};
+	my $ua = LWP::UserAgent->new;
+	my $res = $ua->post($patric_auth_url, $req);
+	if ($res->is_success)
+	{
+	    my $token = $res->content;
+	    if ($token =~ /un=([^|]+)/)
+	    {
+		my @parts = split(/\|/, $token);
+		my %fields;
+		for my $p (@parts)
+		{
+		    my($a,$b) = split(/=/, $p, 2);
+		    $fields{$a} = $b;
+		}
+
+		my $now = time;
+		my $expires_in = $fields{expiry} - $now;
+		return {
+		    access_token => $token,
+		    client_id => $fields{client_id},
+		    user_name => $fields{un},
+		    expires_in => $expires_in,
+		    expiry => $fields{expiry},
+		    issued_on => $now,
+		    lifetime => $expires_in,
+		    scopes => [],
+		    token_id => $fields{tokenid},
+		    token_type => $fields{token_type},
+		};
+	    }
+	    else
+	    {
+		warn "Invalid token return '$token' from $patric_auth_url for $puser\n";
+		return send_error("Unauthorized", 401);
+	    }
+	}
+	else
+	{
+	    return send_error("Unauthorized", 401);
+	}
+    }
+	 
 
     $client_id ||= ($user_for_override ? $user_for_override : $user);
 
