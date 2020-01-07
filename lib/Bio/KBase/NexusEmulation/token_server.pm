@@ -11,10 +11,10 @@ use Crypt::OpenSSL::Random;
 use Apache::Htpasswd;
 use LWP::UserAgent;
 
-use Bio::KBase::DeploymentConfig;
+use Bio::P3::DeploymentConfig;
 
-our $config = Bio::KBase::DeploymentConfig->new();
-# print Dumper($config);
+our $config = Bio::P3::DeploymentConfig->new();
+ print Dumper($config);
 
 our $url_base = $config->setting("url-base");
 our $storage = $config->setting("storage");
@@ -57,42 +57,16 @@ get '/goauth/token' => sub {
 	}
     }
 
-<<<<<<< HEAD
-=======
     if ($user_for_override && !$override_password_file)
     {
 	return send_error("Unauthorized", 401);
     }
 
->>>>>>> d4939a8b701fbc9be9f2fe87a7546113dd3ac52b
     if ($grant_type ne 'client_credentials')
     {
 	return send_error("Invalid request");
     }
 
-<<<<<<< HEAD
-    my $ok; 
-    my $user;
-    if ($auth)
-    {
-	my $pass;
-	($user, $pass) = split(/:/, $auth, 2);
-
-	$client_id ||= ($user_for_override ? $user_for_override : $user);
-
-	my $authority = $authority_manager->default_authority();
-
-	#
-	# If we're passed an override user, check the local password to authenticate
-	# $user/$pass. If that works create the token and pass in the override username
-	# to the token manager to add to the token so it can be identified.
-	#
-
-	if ($user_for_override)
-	{
-	    my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
-					     UseMD5 => 1,
-=======
     my($ok, $user);
 
     if ($auth)
@@ -168,7 +142,6 @@ get '/goauth/token' => sub {
 	{
 	    my $pw = Apache::Htpasswd->new({ passwdFile => $override_password_file,
 						 UseMD5 => 1,
->>>>>>> d4939a8b701fbc9be9f2fe87a7546113dd3ac52b
 					     });
 	    if ($pw->htCheckPassword($user, $pass))
 	    {
