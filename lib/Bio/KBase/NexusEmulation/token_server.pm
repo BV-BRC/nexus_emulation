@@ -31,9 +31,6 @@ my $salt = $config->setting("salt") || "(African || European)?";
 
 set serializer => 'JSON';
 set show_errors => 1;
-set plack_middlewares => [
-    [ 'CrossOrigin' => (origins => "*", headers => "*")],
-];
 
 hook 'before' => sub {
     if (request->path_info =~ m,^//(.*),)
