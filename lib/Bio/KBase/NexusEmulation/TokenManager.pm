@@ -252,10 +252,11 @@ sub validate
     my @parts = map { [ split(/=/, $_, 2) ] } split(/\|/, $token);
     my $to_sign = join("|", map { join("=", @$_) } grep { $_->[0] ne "sig" } @parts);
     my %parts = map { $_->[0] => $_->[1]} @parts;
-    print Dumper(VAL => $to_sign, $user, \%parts);
+    print STDERR Dumper(VAL => $to_sign, $user, \%parts);
 
     if ($parts{un} =~ /\@viprbrc\.org$/ && $user ne $parts{un})
     {
+	print STDERR "Validate failed on name mismatch\n";
 	return 0;
     }
 
@@ -271,6 +272,7 @@ sub validate
     my($key_id) = $subj =~ m,/goauth/keys/(\S+)$,;
     #$key_id or die "No key found in $subj\n";
     my $key = $self->db_hash->{"priv.$key_id"};
+
 
     if (!$key_id || !$key)
     {

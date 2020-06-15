@@ -98,7 +98,10 @@ sub matches_token
 
     my(undef, $un) = $token =~ /(^|\|)un=([^|]+)/;
 
-    return $un =~ /\@viprbrc\.org$/;
+    my $rc = $un =~ /\@viprbrc\.org$/;
+
+    print STDERR "vipr matches_token $un: $rc\n";
+    return $rc;
 }
 
 

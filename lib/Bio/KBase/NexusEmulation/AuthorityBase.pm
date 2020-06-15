@@ -36,7 +36,10 @@ sub matches_token
     my @parts = split(/\|/, $token);
     my($subj) = $token =~ /\|SigningSubject=([^|]+)/;
 
-    return $subj =~ /$self->{signing_subject_match}/;
+    my $rc = $subj =~ /$self->{signing_subject_match}/;
+
+    print STDERR "base matches_token $subj: $rc\n";
+    return $rc;
 }
 
 1;
