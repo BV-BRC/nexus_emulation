@@ -252,7 +252,12 @@ sub validate
     my @parts = map { [ split(/=/, $_, 2) ] } split(/\|/, $token);
     my $to_sign = join("|", map { join("=", @$_) } grep { $_->[0] ne "sig" } @parts);
     my %parts = map { $_->[0] => $_->[1]} @parts;
-    # print Dumper($to_sign, \%parts);
+    print Dumper(VAL => $to_sign, $user, \%parts);
+
+    if ($parts{un} =~ /\@viprbrc\.org$/ && $user ne $parts{un})
+    {
+	return 0;
+    }
 
     my $subj = $parts{SigningSubject};
     my $surl = URI->new($subj);
@@ -283,6 +288,7 @@ sub validate
 		print STDERR "public key is invalid\n";
 		return 0;
 	    }
+
 	    my $pubkey = $data->{pubkey};
 	    my $rsa = Crypt::OpenSSL::RSA->new_public_key($pubkey);
 	    $rsa->use_sha1_hash();

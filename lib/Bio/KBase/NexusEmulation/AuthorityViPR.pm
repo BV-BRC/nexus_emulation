@@ -83,7 +83,7 @@ sub user_profile
 {
     my($self, $login) = @_;
 
-    (my $email = $login)  =~ s/\.viprbrc\.org$//;
+    (my $email = $login)  =~ s/\@viprbrc\.org$//;
 
     return {
 	username => $login,
@@ -91,5 +91,15 @@ sub user_profile
 	($self->realm ? (realm => $self->realm ) : ()),
     };
 }
+
+sub matches_token
+{
+    my($self, $token) = @_;
+
+    my(undef, $un) = $token =~ /(^|\|)un=([^|]+)/;
+
+    return $un =~ /\@viprbrc\.org$/;
+}
+
 
 1;
