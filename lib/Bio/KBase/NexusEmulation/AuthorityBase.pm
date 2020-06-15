@@ -15,6 +15,14 @@ sub new
     return bless $self, $class;
 }
 
+sub matches_user_suffix
+{
+    my($self, $login) = @_;
+    (my $suffix) = $login =~ /\@([^@]+)$/;
+    print "Suffix for $login is $suffix\n";
+    return $suffix eq $self->{user_suffix};
+}
+
 sub matches_realm
 {
     my($self, $realm) = @_;

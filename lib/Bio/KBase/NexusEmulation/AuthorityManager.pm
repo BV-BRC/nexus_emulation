@@ -19,6 +19,7 @@ sub new
     my $auth_objs = [];
 
     my $auths = $config->setting("authority-list");
+    $auths = [$auths] unless ref($auths);
     my $default_auth = $config->setting("default-authority");
     my $default_obj;
 
@@ -26,6 +27,7 @@ sub new
     {
 	my $auth_class = $config->setting("$auth-class");
 	my $auth_params = $config->setting("$auth-params");
+	$auth_params = [$auth_params] unless ref($auth_params);
 	my $auth_realm = $config->setting("$auth-realm");
 	my $auth_user_suffix = $config->setting("$auth-user-suffix");
 	my $auth_signing_subject_match = $config->setting("$auth-signing-subject-match");
@@ -55,6 +57,19 @@ sub find_matching_authority_by_token
     for my $auth (@{$self->auth_objs})
     {
 	if ($auth->matches_token($token))
+	{
+	    return $auth;
+	}
+    }
+    return undef;
+}
+
+sub find_matching_authority_by_login
+{
+    my($self, $login) = @_;
+    for my $auth (@{$self->auth_objs})
+    {
+	if ($auth->matches_user_suffix($login))
 	{
 	    return $auth;
 	}

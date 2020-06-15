@@ -126,11 +126,15 @@ get '/goauth/token' => sub {
 	    {
 		return send_error("Unauthorized", 401);
 	    }
-	} # end PATRIC spcial case
+	}
+	# End PATRIC special case. All code paths above have a hard return so PATRIC is
+	# done at this point.
 
 	$client_id ||= ($user_for_override ? $user_for_override : $user);
 
-	my $authority = $authority_manager->default_authority();
+	my $authority =
+	    $authority_manager->find_matching_authority_by_login($user) //
+	    $authority_manager->default_authority();
 
 	#
 	# If we're passed an override user, check the local password to authenticate
